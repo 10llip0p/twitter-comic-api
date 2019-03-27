@@ -42,8 +42,21 @@ router.get("/", function(req, res, next) {
   recursiveFetch(tweetsStack, req.query.id)
     .then(tweets => {
       let data = {};
+      data["user"] = tweets[0].user;
+      data["data"] = [];
       tweets.forEach(tweet => {
-        data[tweet.id] = tweet;
+        let image_urls = [];
+        tweet.extended_entities.media.forEach(media => {
+          if (media.type === "photo") {
+            image_urls.push(media.media_url);
+          }
+        });
+        data["data"].push({
+          id: tweet.id_str,
+          text: tweet.text,
+          created_at: tweet.created_at,
+          images: image_urls
+        });
       });
       res.json(data);
     })
