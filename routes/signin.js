@@ -54,9 +54,9 @@ router.get("/", function(req, res, next) {
     "oauth_timestamp": Math.floor(time/1000),
     "oauth_nonce": time,
     "oauth_version": "1.0"
-  }
+  };
 
-  const requestHeaderParams = createRequestParams(baseParams, requestUrl, requestMethod)
+  const requestHeaderParams = createRequestParams(baseParams, requestUrl, requestMethod);
 
   const requestOption = {
     url: requestUrl,
@@ -64,7 +64,7 @@ router.get("/", function(req, res, next) {
     headers: {
       'Authorization': `OAuth ${requestHeaderParams}`
     }
-  }
+  };
 
   request(requestOption, (err, response, body) => {
     if (err || response.statusCode!==200) {
@@ -73,10 +73,14 @@ router.get("/", function(req, res, next) {
       return;
     }
     const query = querystring.parse(body); 
+    // アクセストークンの取得で使用するためにOauthTokenSecretを一時的にcookieに保存
+    res.cookie('oauthTokenSecret', query.oauth_token_secret, {
+      maxAge: 10000
+    })
     res.json({
       //oauth_url: `https://api.twitter.com/oauth/authenticate?oauth_token=${query.oauth_token}`,
       oauth_url: `https://api.twitter.com/oauth/authorize?oauth_token=${query.oauth_token}`,
-      oauth_token_secret: query.oauth_token_secret
+      //oauth_token_secret: query.oauth_token_secret
     })
   })
 
@@ -87,15 +91,16 @@ router.get("/", function(req, res, next) {
  * 認証画面からのcallbackで受け取ったoauth_tokenとoauth_verifier, リクエストトークンを取得した際のoauth_token_secretをGETパラメータで渡す
  */
 router.get("/access_token", (req, res, next) => {
-  if (!req.query.oauth_token || !req.query.oauth_verifier || !req.query.oauth_token_secret) {
-    next(new Error())
-    console.error("Bad Request")
-    return
+  if (!req.query.oauth_token || !req.query.oauth_verifier || !req.cookies.oauthTokenSecret) {
+    next(new Error());
+    console.error("Bad Request");
+    return;
   }
-  const oauthToken =  req.query.oauth_token
-  const oauthVerifier = req.query.oauth_verifier
-  const oauthTokenSecret = req.query.oauth_token_secret
-  const requestUrl = "https://api.twitter.com/oauth/access_token" 
+  
+  const oauthToken =  req.query.oauth_token;
+  const oauthVerifier = req.query.oauth_verifier;
+  const oauthTokenSecret = req.cookies.oauthTokenSecret;
+  const requestUrl = "https://api.twitter.com/oauth/access_token";
   const requestMethod = "POST";
 
   const time = new Date().getTime();
@@ -107,9 +112,9 @@ router.get("/access_token", (req, res, next) => {
     "oauth_verifier": oauthVerifier,
     "oauth_nonce": time,
     "oauth_version": "1.0"
-  }
+  };
 
-  const requestHeaderParams = createRequestParams(baseParams, requestUrl, requestMethod, oauthTokenSecret)
+  const requestHeaderParams = createRequestParams(baseParams, requestUrl, requestMethod, oauthTokenSecret);
 
   const requestOption = {
     url: requestUrl,
@@ -117,7 +122,7 @@ router.get("/access_token", (req, res, next) => {
     headers: {
       'Authorization': `OAuth ${requestHeaderParams}`
     }
-  }
+  };
 
   request(requestOption, (err, response, body) => {
     if (err || response.statusCode!==200) {
@@ -126,9 +131,12 @@ router.get("/access_token", (req, res, next) => {
       return;
     }
     const query = querystring.parse(body); 
+    // トークン情報をcookieに保存
+    res.cookie('oauthToken', query.oauth_token);
+    res.cookie('oauthTokenSecret', query.oauth_token_secret)
     res.json({
-      access_token: query.oauth_token,
-      access_token_secret: query.oauth_token_secret,
+      //access_token: query.oauth_token,
+      //access_token_secret: query.oauth_token_secret,
       user_id: query.user_id,
       screen_name: query.screen_name
     })
